@@ -143,7 +143,7 @@ export default function Home() {
           `${i + 1}. ${e.context}\n   你说的: "${e.sentence}"\n   更好的: "${buildUpgraded(e)}"\n   建议: ${e.tip}`
       )
       .join('\n\n');
-    const text = `${analysis.speaker} — ${analysis.theme} (${analysis.level})\n\n${lines}\n\n核心建议: ${analysis.takeaway}`;
+    const text = `${analysis.speaker} — ${analysis.theme}\n\n${lines}\n\n核心建议: ${analysis.takeaway}`;
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedAll(true);
     setTimeout(() => setCopiedAll(false), 2000);
