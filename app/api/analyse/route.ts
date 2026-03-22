@@ -1,9 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { NextRequest } from 'next/server';
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  baseURL: process.env.ANTHROPIC_BASE_URL,
+const client = new OpenAI({
+  apiKey: process.env.BIGMODEL_API_KEY,
+  baseURL: 'https://open.bigmodel.cn/api/paas/v4',
 });
 
 export async function POST(req: NextRequest) {
@@ -56,9 +56,10 @@ Rules:
 - "meeting" must be in Chinese if inferable, e.g. "功能上线延期讨论"，or null
 - level is one of: B1 / B2 / C1`;
 
-  const stream = await client.messages.stream({
-    model: 'claude-sonnet-4-5@20250929',
+  const stream = await client.chat.completions.create({
+    model: 'glm-4-flash',
     max_tokens: 1200,
+    stream: true,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -67,13 +68,9 @@ Rules:
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        for await (const event of stream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content ?? '';
+          if (text) controller.enqueue(encoder.encode(text));
         }
         controller.close();
       } catch (err) {
