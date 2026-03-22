@@ -7,7 +7,8 @@ const client = new OpenAI({
 });
 
 export async function POST(req: NextRequest) {
-  const { transcript, speaker } = await req.json();
+  const { transcript, speaker, lang } = await req.json();
+  const isZh = lang === 'zh';
 
   if (!transcript?.trim()) {
     return new Response(JSON.stringify({ error: 'Transcript is required' }), {
@@ -16,7 +17,42 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const prompt = `You are a business English coach. The transcript may be in English only, or a mix of Chinese and English (code-switching). Your job is to find the 5 most impactful English expression upgrades for the specified speaker.
+  const prompt = isZh
+    ? `你是一位职场普通话沟通教练。你的任务是找出指定发言者在会议中最值得改进的 5 个中文表达。
+
+会议记录：
+"""
+${transcript}
+"""
+
+${speaker?.trim() ? `只分析以下发言者的内容："${speaker.trim()}"` : '分析发言最多的主要发言者。'}
+
+⚠️ 重要：只分析中文表达。如果记录中有英文，忽略英文部分，只找中文表达的改进点。
+
+只返回合法 JSON，不要 markdown：
+{
+  "speaker": "记录中使用的确切姓名或标签",
+  "theme": "一句话 — 该发言者主要的中文表达问题",
+  "meeting": "从记录推断的会议主题，中文，无法判断则为 null",
+  "expressions": [
+    {
+      "original": "发言者使用的原始中文表达 — 必须逐字出现在记录中",
+      "sentence": "包含该表达的完整原句 — 逐字复制，不得修改任何字",
+      "replacement": "替换 original 的更好中文表达 — 简短，不是整句话",
+      "context": "2-4字的场景标签，如「汇报进展」",
+      "tip": "10字以内的改进建议，如「少用模糊词，直说结论」"
+    }
+  ],
+  "takeaway": "给该发言者最核心的一句建议"
+}
+
+规则：
+- expressions 必须恰好 5 条
+- "original" 必须是中文表达，逐字出现在记录中
+- "replacement" 是替换 original 的简短表达，不是完整句子
+- "sentence" 必须逐字复制原文，一个字都不能改
+- "theme"、"context"、"tip"、"takeaway"、"meeting" 全部用中文`
+    : `You are a business English coach. The transcript may be in English only, or a mix of Chinese and English (code-switching). Your job is to find the 5 most impactful English expression upgrades for the specified speaker.
 
 Transcript:
 """
@@ -30,7 +66,6 @@ ${speaker?.trim() ? `Focus ONLY on lines spoken by: "${speaker.trim()}"` : 'Anal
 Return ONLY valid JSON, no markdown:
 {
   "speaker": "exact name or label used in transcript",
-  "level": "B1",
   "theme": "one short phrase — the main English communication gap",
   "meeting": "short meeting title or topic inferred from transcript, or null if unclear",
   "expressions": [
@@ -55,8 +90,7 @@ Rules:
 - "tip" must be in Chinese, under 10 characters, e.g. "直接说结论"、"去掉犹豫词"
 - "theme" must be in Chinese, e.g. "表达过于模糊，缺乏自信"
 - "takeaway" must be in Chinese, one sentence
-- "meeting" must be in Chinese if inferable, e.g. "功能上线延期讨论"，or null
-- level is one of: B1 / B2 / C1`;
+- "meeting" must be in Chinese if inferable, e.g. "功能上线延期讨论"，or null`;
 
   const stream = await client.chat.completions.create({
     model: 'glm-4-flash',

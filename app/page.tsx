@@ -2,13 +2,21 @@
 
 import { useState, useRef } from 'react';
 
-const SAMPLE_TRANSCRIPT = `Jin: So, uh, basically what I want to say is that the feature is not ready yet because we have some technical issues. I think maybe we should push the deadline.
+const SAMPLE_EN = `Jin: So, uh, basically what I want to say is that the feature is not ready yet because we have some technical issues. I think maybe we should push the deadline.
 Sarah: What's the current status exactly?
 Jin: The team is working very hard but the progress is, how to say, a bit slow. I feel like we need more time to finish everything properly.
 Sarah: How much more time are we talking?
 Jin: Maybe two more weeks? I'm not 100% sure but I think that should be enough. Actually I want to confirm with everyone here, do we have flexibility on the timeline or not?
 Sarah: We can consider it. Send me a written update by Friday.
 Jin: OK I will try to do that. Thank you for understanding.`;
+
+const SAMPLE_ZH = `金：这个功能现在还没弄好，就是说技术上有点问题，我觉得可能需要再推迟一下。
+莎拉：现在具体是什么情况？
+金：团队都在努力做，但是进度的话，怎么说呢，就是有点慢。我感觉还需要一点时间才能搞完。
+莎拉：大概还需要多久？
+金：可能两周左右吧？我也不是很确定，就是感觉差不多够了。我想问一下大家，时间上有没有灵活性？
+莎拉：可以考虑。周五之前发给我一个书面说明。
+金：好的，我会尽量做到的，谢谢你的理解。`;
 
 type Expression = {
   original: string;
@@ -20,7 +28,6 @@ type Expression = {
 
 type Analysis = {
   speaker: string;
-  level: string;
   theme: string;
   meeting: string | null;
   expressions: Expression[];
@@ -29,17 +36,13 @@ type Analysis = {
 
 type PageState = 'input' | 'loading' | 'result';
 type Exporting = null | 'image' | 'pdf';
-
-const levelColor: Record<string, string> = {
-  B1: '#f59e0b',
-  B2: '#3b82f6',
-  C1: '#8b5cf6',
-};
+type Lang = 'en' | 'zh';
 
 export default function Home() {
   const [state, setState] = useState<PageState>('input');
   const [transcript, setTranscript] = useState('');
   const [speaker, setSpeaker] = useState('');
+  const [lang, setLang] = useState<Lang>('en');
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<number | null>(null);
@@ -57,7 +60,7 @@ export default function Home() {
       const res = await fetch('/api/analyse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, speaker }),
+        body: JSON.stringify({ transcript, speaker, lang }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -221,9 +224,6 @@ export default function Home() {
 
   /* ─── Result ─────────────────────────────────────── */
   if (state === 'result' && analysis) {
-    const lvl = analysis.level.split('/')[0].trim();
-    const badgeColor = levelColor[lvl] ?? '#6b7280';
-
     return (
       <main style={s.main}>
         <div style={s.container}>
@@ -241,7 +241,6 @@ export default function Home() {
               </div>
               <div style={s.headerRight}>
                 <span style={s.themePill}>{analysis.theme}</span>
-                <span style={{ ...s.levelBadge, background: badgeColor }}>{analysis.level}</span>
               </div>
             </div>
 
@@ -328,7 +327,18 @@ export default function Home() {
       <div style={s.container}>
         <div style={s.hero}>
           <h1 style={s.title}>会后5分钟</h1>
-          <p style={s.tagline}>粘贴会议记录，获取你专属的 5 个英语表达升级建议</p>
+          <p style={s.tagline}>粘贴会议记录，获取你专属的 5 个表达升级建议</p>
+        </div>
+
+        <div style={s.langToggle}>
+          <button
+            style={lang === 'en' ? s.langBtnActive : s.langBtn}
+            onClick={() => setLang('en')}
+          >🇬🇧 英语模式</button>
+          <button
+            style={lang === 'zh' ? s.langBtnActive : s.langBtn}
+            onClick={() => setLang('zh')}
+          >🇨🇳 普通话模式</button>
         </div>
 
         <div style={s.form}>
@@ -354,7 +364,10 @@ export default function Home() {
           {error && <p style={s.error}>{error}</p>}
 
           <div style={s.actionRow}>
-            <button style={s.secondaryBtn} onClick={() => { setTranscript(SAMPLE_TRANSCRIPT); setSpeaker('Jin'); }}>
+            <button style={s.secondaryBtn} onClick={() => {
+              if (lang === 'en') { setTranscript(SAMPLE_EN); setSpeaker('Jin'); }
+              else { setTranscript(SAMPLE_ZH); setSpeaker('金'); }
+            }}>
               加载示例
             </button>
             <button
@@ -362,7 +375,7 @@ export default function Home() {
               onClick={handleSubmit}
               disabled={!transcript.trim()}
             >
-              分析我的英语 →
+              {lang === 'en' ? '分析我的英语 →' : '分析我的普通话 →'}
             </button>
           </div>
         </div>
@@ -450,7 +463,9 @@ const s: Record<string, React.CSSProperties> = {
   speakerName: { fontSize: 22, fontWeight: 700, color: '#111', letterSpacing: '-0.4px' },
   headerRight: { display: 'flex', alignItems: 'center', gap: 8 },
   themePill: { background: '#f3f4f6', color: '#374151', borderRadius: 999, padding: '4px 12px', fontSize: 12, fontWeight: 600 },
-  levelBadge: { color: '#fff', borderRadius: 999, padding: '4px 11px', fontSize: 12, fontWeight: 700, letterSpacing: '0.4px' },
+  langToggle: { display: 'flex', gap: 8, marginBottom: 24 },
+  langBtn: { padding: '8px 18px', background: '#fff', color: '#6b7280', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' },
+  langBtnActive: { padding: '8px 18px', background: '#111', color: '#fff', border: '1.5px solid #111', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   sectionTitle: { fontSize: 16, fontWeight: 700, color: '#111', margin: '0 0 14px' },
 
   /* cards */
